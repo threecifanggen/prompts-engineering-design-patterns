@@ -1,0 +1,313 @@
+---
+description: "Python 开发规范和最佳实践，使用 Python 3.12、conda 环境、类型注释、代码中管理代理"
+alwaysApply: false
+globs: ["**/*.py"]
+---
+
+# Python 开发规范
+
+本规则定义了项目的 Python 开发标准和工作流程，确保代码质量、类型安全和一致性。
+
+## 开发环境
+
+### Conda 环境
+- **Python 版本**: 3.12
+- **环境管理**: 使用 conda 创建和管理虚拟环境
+- **环境名称**: 建议使用项目名称作为环境名
+
+```bash
+# 创建环境
+conda create -n project_name python=3.12
+
+# 激活环境
+conda activate project_name
+```
+
+### 依赖管理
+- 使用 `requirements.txt` 或 `pyproject.toml` 管理依赖
+- 定期更新依赖版本
+- 使用 `pip freeze` 锁定版本
+
+### 网络请求和代理管理
+
+**重要**: 所有涉及网络连接的函数（HTTP 请求、API 调用、网页爬取）必须在代码中禁用代理。
+
+#### 标准实现模式
+
+```python
+import requests
+
+def fetch_data(url: str, timeout: int = 10) -> requests.Response:
+    """发送 HTTP 请求（默认禁用代理）。
+    
+    Args:
+        url: 目标 URL
+        timeout: 超时时间
+        
+    Returns:
+        响应对象
+    """
+    # 在代码中禁用代理
+    proxies = {
+        'http': None,
+        'https': None,
+    }
+    
+    return requests.get(url, proxies=proxies, timeout=timeout)
+```
+
+#### 为什么在代码中禁用代理？
+
+- 避免 SSL/TLS 握手失败
+- 避免代理服务器超时
+- 避免代理配置错误
+- 确保代码在任何环境都能正常运行
+
+#### 网络请求最佳实践
+
+```python
+import requests
+from bs4 import BeautifulSoup
+from typing import Dict, List
+
+def scrape_news(
+    url: str,
+    timeout: int = 10
+) -> List[Dict[str, str]]:
+    """爬取新闻数据。
+    
+    Args:
+        url: 新闻网站 URL
+        timeout: 超时时间
+        
+    Returns:
+        新闻列表
+        
+    Raises:
+        ConnectionError: 网络连接失败
+        TimeoutError: 请求超时
+        ValueError: 解析失败
+    """
+    try:
+        # 核心：禁用代理
+        response = requests.get(
+            url,
+            proxies={'http': None, 'https': None},
+            timeout=timeout,
+            headers={'User-Agent': 'Mozilla/5.0'}
+        )
+        response.raise_for_status()
+        
+        # 解析内容
+        soup = BeautifulSoup(response.text, 'html.parser')
+        # ... 解析逻辑
+        
+        return []
+        
+    except requests.exceptions.ConnectionError as e:
+        raise ConnectionError(f"连接失败: {e}") from e
+    except requests.exceptions.Timeout as e:
+        raise TimeoutError(f"请求超时（{timeout}秒）: {e}") from e
+    except Exception as e:
+        raise ValueError(f"解析失败: {e}") from e
+```
+
+## 代码规范
+
+### 类型注释（Python 3.12）
+
+**所有函数必须包含类型注释**，遵循 Python 3.12 的类型注释规范：
+
+```python
+# Python 3.12: 使用内置类型
+def process_data(
+    data: list[dict[str, int]],
+    threshold: int = 10,
+    options: dict[str, str] | None = None
+) -> tuple[list[int], bool]:
+    """处理数据并返回结果。"""
+    pass
+
+# 类型别名（Python 3.12 新语法）
+type Point = tuple[float, float]
+type Vector = list[Point]
+
+# 泛型类型
+def first[T](items: list[T]) -> T | None:
+    return items[0] if items else None
+```
+
+**Python 3.12 类型注释要点**：
+- 使用 `list[T]` 而非 `List[T]`
+- 使用 `dict[K, V]` 而非 `Dict[K, V]`
+- 使用 `X | Y` 而非 `Union[X, Y]`
+- 使用 `type` 关键字定义类型别名
+
+### 文档字符串
+
+使用 Google 风格的文档字符串：
+
+```python
+def calculate_metrics(
+    data: list[float],
+    weights: list[float] | None = None
+) -> dict[str, float]:
+    """计算数据指标。
+    
+    Args:
+        data: 输入数据列表
+        weights: 可选的权重列表
+        
+    Returns:
+        包含各种指标的字典
+        
+    Raises:
+        ValueError: 当数据为空时
+        
+    Examples:
+        >>> calculate_metrics([1.0, 2.0, 3.0])
+        {'mean': 2.0, 'sum': 6.0}
+    """
+    if not data:
+        raise ValueError("数据不能为空")
+    
+    return {
+        'mean': sum(data) / len(data),
+        'sum': sum(data)
+    }
+```
+
+### 代码风格
+
+- **缩进**: 4 个空格
+- **行长度**: 最大 88 字符（Black 默认）
+- **导入顺序**: 标准库 → 第三方库 → 本地模块
+- **命名规范**:
+  - 类名: `PascalCase`
+  - 函数/变量: `snake_case`
+  - 常量: `UPPER_SNAKE_CASE`
+  - 私有成员: `_leading_underscore`
+
+## 开发工作流
+
+### 1. 需求整理阶段
+- 读取 `requirements.md` 或文件注释
+- 整理成结构化需求文档
+- 覆盖写回原文件
+
+### 2. 开发阶段
+- 使用 Python 3.12 规范
+- 添加完整类型注释
+- **网络请求函数必须禁用代理**
+- 编写文档字符串
+- 实现错误处理
+
+### 3. 格式化阶段
+- 交由 @formatter 进行：
+  - Pylint 检查（≥ 8.0/10）
+  - Mypy 类型检查
+  - Ruff 格式化
+
+### 4. 测试阶段
+- 在 conda py312 环境中测试
+- 验证网络功能正常
+- 确保所有测试通过
+
+## 网络功能开发清单
+
+开发网络相关功能时，确保：
+
+- [ ] 在 `requests.get/post()` 中添加 `proxies={'http': None, 'https': None}`
+- [ ] 设置合理的 `timeout` 参数
+- [ ] 添加适当的 `User-Agent` header
+- [ ] 实现完整的异常处理（ConnectionError, TimeoutError）
+- [ ] 编写测试用例验证功能
+
+## 常见网络问题排查
+
+| 错误 | 原因 | 解决方案 |
+|------|------|---------|
+| `SSLError` | 代理干扰 | 检查代码中是否设置了 `proxies={'http': None, 'https': None}` |
+| `ConnectionError` | 网络问题 | 确认 URL 正确，代理已禁用 |
+| `TimeoutError` | 超时 | 增加 timeout 值 |
+
+## 完整示例
+
+```python
+"""News Getter 模块示例。"""
+
+import requests
+from bs4 import BeautifulSoup
+from typing import TypedDict
+
+
+class NewsItem(TypedDict):
+    """新闻条目类型。"""
+    title: str
+    url: str
+    date: str
+
+
+def fetch_news(
+    url: str = "https://news.example.com",
+    limit: int = 10,
+    timeout: int = 10
+) -> list[NewsItem]:
+    """获取新闻列表。
+    
+    Args:
+        url: 新闻网站 URL
+        limit: 获取数量
+        timeout: 超时时间
+        
+    Returns:
+        新闻列表
+        
+    Raises:
+        ConnectionError: 连接失败
+        TimeoutError: 请求超时
+        ValueError: 解析失败
+    """
+    try:
+        # 核心：禁用代理
+        response = requests.get(
+            url,
+            proxies={'http': None, 'https': None},
+            timeout=timeout
+        )
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        news_list: list[NewsItem] = []
+        
+        # 解析逻辑...
+        
+        return news_list[:limit]
+        
+    except requests.exceptions.ConnectionError as e:
+        raise ConnectionError(f"连接失败: {e}") from e
+    except requests.exceptions.Timeout as e:
+        raise TimeoutError(f"请求超时: {e}") from e
+    except Exception as e:
+        raise ValueError(f"解析失败: {e}") from e
+
+
+if __name__ == "__main__":
+    try:
+        news = fetch_news(limit=5)
+        for item in news:
+            print(f"{item['title']} - {item['url']}")
+    except (ConnectionError, TimeoutError, ValueError) as e:
+        print(f"错误: {e}")
+```
+
+## 总结
+
+遵循本规则可以确保：
+- ✅ Python 3.12 标准代码
+- ✅ 完整的类型注释
+- ✅ 网络请求在代码中禁用代理
+- ✅ 一致的代码风格
+- ✅ 高质量的代码
+
+**核心要点**: 所有网络请求必须在代码中设置 `proxies={'http': None, 'https': None}`，确保代码在任何环境都能正常工作。
